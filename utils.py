@@ -46,22 +46,13 @@ def simplify_addr(s):
 
 
 def extract_headers_from_msg(msg_body):
-    # Extract 'From' and 'Subject' from mes_body.
-    # TODO: try email.message_from_body()['From']
-    FROM_FIELD = 'From: '
-    SUBJ_FIELD = 'Subject: '
-    from_addr, subj = None, None
-    for line in msg_body.split(b'\r\n'):
-        line = line.decode('utf-8', errors='ignore')  # Unicode should be encoded inside its field
-        if line.startswith('From: '):
-            from_addr = line[len(FROM_FIELD):]
-            from_addr = simplify_addr(from_addr)
-        if line.startswith('Subject: '):
-            subj, encoding = decode_header(line[len(SUBJ_FIELD):])[0]
-            if encoding is not None:
-                subj = subj.decode(encoding, errors='ignore')
-    if from_addr is None or subj is None:
-        raise ValueError("Failed to extract from_addr or subj from message. \nmsg_body first 1KB:" + msg_body[:1024])
+    # Extract 'From' and 'Subject' from msg_body.
+    msg = email.message_from_bytes(msg_body)
+    from_addr, subj = msg['From'], msg['Subject']
+    from_addr = simplify_addr(from_addr)
+    subj, encoding = decode_header(subj)[0]
+    if encoding is not None:
+        subj = subj.decode(encoding, errors='ignore')
     return from_addr, subj
 
 
@@ -96,10 +87,9 @@ def send_a_email(smtp_server, self_address, to_address, subj, text):
 IMAPDB_HEADER = "Subject: Internal Message DO NOT DELETE\r\n\r\n"
 def upload_data_to_imap(imap_server, folder_name, str_msg):
     imap_server.create(folder_name) # Create if not exists
+    stat, data = imap_server.select(folder_name)
+    assert(stat == 'OK')
     try:
-        stat, data = imap_server.select(folder_name)
-        assert(stat == 'OK')
-
         # 1. Clear the folder
         msg_count = int(data[0].decode())
         if msg_count > 1:
@@ -114,21 +104,37 @@ def upload_data_to_imap(imap_server, folder_name, str_msg):
     except:
         raise
     finally:
-        imap_server.close()
+        try:
+            imap_server.close()
+            imap_server.select('INBOX')
+        except:
+            pass
 def download_data_from_imap(imap_server, folder_name):
     # Returns string message
+    stat, data = imap_server.select(folder_name)
+    if not stat == 'OK':
+        # This mailbox is not created yet.
+        return ""
     try:
-        stat, data = imap_server.select(folder_name)
-        assert(stat == 'OK')
         msg_count = int(data[0].decode())
         if msg_count > 0:
             stat, data = imap_server.fetch(b'1', '(RFC822)')
             assert(stat == 'OK')
-            return data[0][1].decode('utf-8', errors='ignore')
+            return data[0][1].decode('utf-8', errors='ignore')[len(IMAPDB_HEADER):]
         else:
             return ""
     except:
         raise
     finally:
-        imap_server.close()
+        try:
+            imap_server.close()
+            imap_server.select('INBOX')
+        except:
+            pass
+def upload_strarr_to_imap(imap_server, folder_name, str_arr):
+    payload = '|'.join(str_arr)
+    upload_data_to_imap(imap_server, folder_name, payload)
+def download_strarr_from_imap(imap_server, folder_name):
+    payload = download_data_from_imap(imap_server, folder_name)
+    return [] if payload == '' else payload.split('|')
 

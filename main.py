@@ -33,10 +33,10 @@ def on_new_message(msg_body, imap_server, smtp_server):
     from_addr, subj = utils.extract_headers_from_msg(msg_body)
     print("DEBUG: on_new_message, ", from_addr, subj)
     if subj.strip().lower() == 'subscribe':
-        if from_addr.lower() in subscribers_cache:
+        if from_addr.lower() not in subscribers_cache:
             # Subscribe this guy
             subscribers_cache.append(from_addr.lower())
-            utils.upload_data_to_imap(imap_server, config.data_folder_name, subscribers_cache)
+            utils.upload_strarr_to_imap(imap_server, config.data_folder_name, subscribers_cache)
             utils.send_a_email(smtp_server, config.list_address, from_addr, subscribed_msg_subj, subscribed_msg_text)
         else:
             utils.send_a_email(smtp_server, config.list_address, from_addr, dup_subscribed_msg_subj, dup_subscribed_msg_text)
@@ -44,7 +44,7 @@ def on_new_message(msg_body, imap_server, smtp_server):
         if from_addr.lower() in subscribers_cache:
             # Unsubscribe this guy.
             subscribers_cache.remove(from_addr.lower())
-            utils.upload_data_to_imap(imap_server, config.data_folder_name, subscribers_cache)
+            utils.upload_strarr_to_imap(imap_server, config.data_folder_name, subscribers_cache)
             utils.send_a_email(smtp_server, config.list_address, from_addr, unsubscribed_msg_subj, unsubscribed_msg_text)
         else:
             utils.send_a_email(smtp_server, config.list_address, from_addr, dup_unsubscribed_msg_subj, dup_unsubscribed_msg_text)
@@ -92,12 +92,14 @@ def mailbox_monitor_forever(imap_server, smtp_server):
 
 def main():
     global subscribers_cache
+    print('Connecting to IMAP and SMTP servers...')
     imap_server = utils.connect_to_server(True, config.imap_server)
     smtp_server = utils.connect_to_server(False, config.smtp_server)
     imap_server.login(config.imap_username, config.imap_password)
     smtp_server.login(config.smtp_username, config.smtp_password)
     print('Successfully logged into IMAP and SMTP server. ')
-    subscribers_cache = utils.download_data_from_imap(imap_server, config.data_folder_name)
+    subscribers_cache = utils.download_strarr_from_imap(imap_server, config.data_folder_name)
+    print('Subscribers:', subscribers_cache)
     mailbox_monitor_forever(imap_server, smtp_server)
 
 

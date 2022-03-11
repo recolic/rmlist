@@ -12,7 +12,7 @@ list_address = 'tmp1@recolic.net'
 
 imap_server = 'SSL:imap.recolic.net:993'
 imap_username = list_address
-imap_password = '....'
+imap_password = '...'
 
 smtp_server = 'STARTTLS:smtp.recolic.net:587'
 smtp_username = imap_username
