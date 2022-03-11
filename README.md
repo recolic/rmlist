@@ -1,4 +1,4 @@
-# rmlist
+# rmlist [Work-In-Progress]
 
 > Turn any mailbox into mailing list. 
 
