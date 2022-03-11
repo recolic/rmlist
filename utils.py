@@ -2,7 +2,7 @@
 # Just static utilities.
 
 from email.header import decode_header
-import fnmatch
+import fnmatch, time
 import imaplib, smtplib
 
 # from itertools import chain
@@ -91,3 +91,44 @@ def send_a_email(smtp_server, self_address, to_address, subj, text):
     message['To'] = to_address
     message['Date'] = formatdate(localtime=True)
     smtp_server.send_message(message)
+
+
+IMAPDB_HEADER = "Subject: Internal Message DO NOT DELETE\r\n\r\n"
+def upload_data_to_imap(imap_server, folder_name, str_msg):
+    imap_server.create(folder_name) # Create if not exists
+    try:
+        stat, data = imap_server.select(folder_name)
+        assert(stat == 'OK')
+
+        # 1. Clear the folder
+        msg_count = int(data[0].decode())
+        if msg_count > 1:
+            print("Warning: msg_count > 1 in managed IMAPDB data folder. Someone may touched my DB! ")
+        if msg_count > 0:
+            for i in range(msg_count):
+                imap_server.store(str(i+1).encode(), '+FLAGS', '\\Deleted')
+            imap_server.expunge()
+
+        # 2. Append the new message
+        imap_server.append(folder_name, (), imaplib.Time2Internaldate(time.time()), (IMAPDB_HEADER + str_msg).encode('utf-8'))
+    except:
+        raise
+    finally:
+        imap_server.close()
+def download_data_from_imap(imap_server, folder_name):
+    # Returns string message
+    try:
+        stat, data = imap_server.select(folder_name)
+        assert(stat == 'OK')
+        msg_count = int(data[0].decode())
+        if msg_count > 0:
+            stat, data = imap_server.fetch(b'1', '(RFC822)')
+            assert(stat == 'OK')
+            return data[0][1].decode('utf-8', errors='ignore')
+        else:
+            return ""
+    except:
+        raise
+    finally:
+        imap_server.close()
+
