@@ -1,60 +1,75 @@
 #!/usr/bin/python3
 
-import imaplib, smtplib
+import traceback, time
+import config
 import utils
-import email
 
-def connect_to_server(isImap, server_string):
-    protocol, addr, port = server_string.split(':')
-    port = int(port)
 
-    if protocol == 'PLAIN' or protocol == 'STARTTLS':
-        server = imaplib.IMAP4(addr, port) if isImap else smtplib.SMTP(addr, port)
-    elif protocol == 'SSL':
-        server = imaplib.IMAP4_SSL(addr, port) if isImap else smtplib.SMTP_SSL(addr, port)
+def broadcast_a_email(msg_body, smtp_server):
+    print("Broadcasting a email (not implemented yet)")
+    utils.forward_a_email(smtp_server, config.list_address, "root+ms@recolic.net", msg_body)
+
+
+def on_new_message(msg_body, smtp_server):
+    from_addr, subj = utils.extract_headers_from_msg(msg_body)
+    print("DEBUG: on_new_message, ", from_addr, subj)
+    if subj.strip().lower() == 'subscribe':
+        # Add this user to 'subscribed' list
+        utils.send_a_email(smtp_server, config.list_address, from_addr, "You have subscribed {}", "Welcome! ...")
+        # if already subscribed, send error mail
+        pass
+    elif subj.strip().lower() == 'unsubscribe':
+        # Send unsubscribe email or error mail
+        # Remove this user from list
+        pass
     else:
-        raise ValueError("Invalid protocol in server setting: " + server_string)
-    if protocol == 'STARTTLS':
-        server.starttls()
-    return server
+        # This is a broadcast request
+        if utils.check_if_sender_allowed(config.allowed_senders, from_addr):
+            broadcast_a_email(msg_body, smtp_server)
+        else:
+            print("Ignored message '{}' from sender {}, because sender not allowed. ".format(subj, from_addr))
 
 
-def send_a_email(smtp_server, to_address, TODO):
-    pass
-
-
-def broadcast_a_email():
-    pass
-
-
-def mailbox_monitor_forever(imap_server, smtp_server, poll_interval):
-    def check_stat(stat_str):
-        if stat_str != 'OK':
-            print("Warning: IMAP request error, server says ", stat_str)
-
+def mailbox_monitor_forever(imap_server, smtp_server):
     imap_server.select('INBOX')
-    while True:
-        stat, data = imap_server.search(None, '(ALL)')
-        check_stat(stat)
-        # For every message in INBOX
-        for msg_id in data[0].split():
-            stat, data = imap_server.fetch(msg_id, '(RFC822)')
-            check_stat(stat)
-            msg_body = data[0][1]
-            if msg_id == '4':
-                print("DELETING MSG 4, body=", msg_body)
-                imap_server.store(msg_id, '+FLAGS', '\\Deleted')
-                imap_server.expunge()
-        break
+    imap_server.create(config.archive_folder_name)
 
+    while True:
+        need_expunge = False
+        try:
+            stat, data = imap_server.search(None, '(ALL)')
+            assert(stat == 'OK')
+
+            # For every message in INBOX
+            for msg_id in data[0].split():
+                stat, data = imap_server.fetch(msg_id, '(RFC822)')
+                assert(stat == 'OK')
+                msg_body = data[0][1]
+
+                on_new_message(msg_body, smtp_server)
+
+                # After processing the message, move it to archived folder.
+                imap_server.copy(msg_id, config.archive_folder_name)
+                imap_server.store(msg_id, '+FLAGS', '\\Deleted')
+                need_expunge = True
+        except:
+            print("Exception caught in mailbox_monitor_forever main loop: ")
+            traceback.print_exc()
+        finally:
+            # Actually perform the DELETE operations. It will invalidate most msg_id.
+            if need_expunge:
+                imap_server.expunge()
+
+        time.sleep(config.poll_interval)
 
 
 def main():
-    import config
-    imap_server = connect_to_server(True, config.imap_server)
-    smtp_server = connect_to_server(False, config.smtp_server)
+    imap_server = utils.connect_to_server(True, config.imap_server)
+    smtp_server = utils.connect_to_server(False, config.smtp_server)
     imap_server.login(config.imap_username, config.imap_password)
     smtp_server.login(config.smtp_username, config.smtp_password)
-    mailbox_monitor_forever(imap_server, smtp_server, config.poll_interval)
+    print('Successfully logged into IMAP and SMTP server. ')
+    mailbox_monitor_forever(imap_server, smtp_server)
+
 
 main()
