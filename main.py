@@ -1,4 +1,4 @@
-#!/usr/bin/python3
+#!/usr/bin/python3 -u
 
 import traceback, time
 import config
@@ -80,6 +80,12 @@ def mailbox_monitor_forever(imap_server, smtp_server):
                 imap_server.copy(msg_id, config.archive_folder_name)
                 imap_server.store(msg_id, '+FLAGS', '\\Deleted')
                 need_expunge = True
+        except imaplib.IMAP4.abort:
+            print("IMAP connection broken... reconnecting... ")
+            imap_server = utils.connect_to_server(True, config.imap_server)
+            smtp_server = utils.connect_to_server(False, config.smtp_server)
+            imap_server.login(config.imap_username, config.imap_password)
+            smtp_server.login(config.smtp_username, config.smtp_password)
         except:
             print("Exception caught in mailbox_monitor_forever main loop: ")
             traceback.print_exc()
