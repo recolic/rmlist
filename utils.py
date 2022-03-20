@@ -56,7 +56,7 @@ def extract_headers_from_msg(msg_body):
     return from_addr, subj
 
 
-def check_if_sender_allowed(allowed_sender_wildcards, sender_addr):
+def check_if_addr_in_list(allowed_sender_wildcards, sender_addr):
     for wildcard in allowed_sender_wildcards:
         if fnmatch.fnmatch(sender_addr, wildcard):
             return True
