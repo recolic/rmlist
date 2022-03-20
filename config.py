@@ -3,10 +3,9 @@
 # Mailing list introduction
 list_name = 'Hutao Cloud Mailing List'
 
-
 # Mail account attached to this list
 # - server protocol could be PLAIN, SSL or STARTTLS.
-list_address = 'tmp1@recolic.net'
+list_address = 'hutao-news@recolic.net'
 
 imap_server = 'SSL:imap.recolic.net:993'
 imap_username = list_address
