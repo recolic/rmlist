@@ -3,7 +3,7 @@
 import traceback, time
 import config
 import utils
-
+import imaplib
 
 user_help_msg = "To subscribe {0}, you could send a email with subject 'subscribe' to '{1}'. You will receive a confirmation email if everything is going well. \r\n" \
                 "To unsubscribe, you could send a email with subject 'unsubscribe' to '{1}'. You will also receive a confirmation email if it's success. \r\n" \
@@ -31,6 +31,9 @@ def broadcast_a_email(msg_body, smtp_server):
 
 def on_new_message(msg_body, imap_server, smtp_server):
     from_addr, subj = utils.extract_headers_from_msg(msg_body)
+    if utils.check_if_addr_in_list(config.blocked_users, from_addr):
+        print("Ignoring blocked sender: ", from_addr, subj)
+        return
     print("DEBUG: on_new_message, ", from_addr, subj)
     if subj.strip().lower() == 'subscribe':
         if from_addr.lower() not in subscribers_cache:
@@ -50,7 +53,7 @@ def on_new_message(msg_body, imap_server, smtp_server):
             utils.send_a_email(smtp_server, config.list_address, from_addr, dup_unsubscribed_msg_subj, dup_unsubscribed_msg_text)
     else:
         # This is a broadcast request
-        if utils.check_if_sender_allowed(config.allowed_senders, from_addr):
+        if utils.check_if_addr_in_list(config.allowed_senders, from_addr):
             print("Accepted broadcast '{}' from sender {}. ".format(subj, from_addr))
             broadcast_a_email(msg_body, smtp_server)
         else:
