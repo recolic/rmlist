@@ -84,13 +84,13 @@ def mailbox_monitor_forever(imap_server, smtp_server):
                 imap_server.store(msg_id, '+FLAGS', '\\Deleted')
                 need_expunge = True
         except (imaplib.IMAP4.abort, smtplib.SMTPServerDisconnected) as e:
-            print("IMAP connection broken... reconnecting... ")
+            print("IMAP or SMTP connection broken... reconnecting... e=", e)
             imap_server = utils.connect_to_server(True, config.imap_server)
             smtp_server = utils.connect_to_server(False, config.smtp_server)
             imap_server.login(config.imap_username, config.imap_password)
             smtp_server.login(config.smtp_username, config.smtp_password)
-        except:
-            print("Exception caught in mailbox_monitor_forever main loop: ")
+        except Exception as e:
+            print("Exception caught in mailbox_monitor_forever main loop: ", e)
             traceback.print_exc()
         finally:
             # Actually perform the DELETE operations. It will invalidate most msg_id.
