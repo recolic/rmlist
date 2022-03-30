@@ -3,7 +3,7 @@
 import traceback, time
 import config
 import utils
-import imaplib
+import imaplib, smtplib
 
 user_help_msg = "To subscribe {0}, you could send a email with subject 'subscribe' to '{1}'. You will receive a confirmation email if everything is going well. \r\n" \
                 "To unsubscribe, you could send a email with subject 'unsubscribe' to '{1}'. You will also receive a confirmation email if it's success. \r\n" \
@@ -83,7 +83,7 @@ def mailbox_monitor_forever(imap_server, smtp_server):
                 imap_server.copy(msg_id, config.archive_folder_name)
                 imap_server.store(msg_id, '+FLAGS', '\\Deleted')
                 need_expunge = True
-        except imaplib.IMAP4.abort:
+        except (imaplib.IMAP4.abort, smtplib.SMTPServerDisconnected) as e:
             print("IMAP connection broken... reconnecting... ")
             imap_server = utils.connect_to_server(True, config.imap_server)
             smtp_server = utils.connect_to_server(False, config.smtp_server)
